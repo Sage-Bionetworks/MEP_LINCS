@@ -22,6 +22,8 @@ library("grid")
 library(knitr)
 library("gplots")
 library("RColorBrewer")
+library(DT)
+
 
 #Setup colors for Barcode and text in all heatmaps
 selDark2 <- colorRampPalette(brewer.pal(8,"Dark2"))
@@ -135,6 +137,78 @@ l3HF <- l3HF[!l3HF$QA_LowRegionCellCount]
 l4HF <- createl4(l3HF)
 l4HF <- l4HF[l4HF$Spot_PA_ReplicateCount >= HFRepThresh]
 
+thresh <- .5
+```
+###Gating on KRT Response
+
+The following plots show proportions of cell populations gated on their KRT5 and KRT19 median intensity values. The method used is:  
+
+Combine all cell populations of each ECM protein within each well forming MEP populations.  
+Define the KRT5 and KRT19 gate thresholds as the `r thresh*100`th percentile of these signals in the COL1, low serum populations.  
+Apply the KRT5 and KRT19 thresholds to all MEP populations and calculate the four proportions of cells defined as negative for both signals, positive for either KRT5 or KRT19 or positive for both signals.  
+Display the proportions of each MEP population, facted by ligand  
+
+```{r gateKRT}
+dt <- copy(l1)
+setkey(dt,ECMp)
+dt <- dt[!"fiducial"]
+dt <- dt[!"blank"]
+
+
+COL1LsKRT590 <- quantile(dt$Cytoplasm_CP_Intensity_MedianIntensity_KRT5[dt$Ligand=="LowSerum"& dt$ECMp=="COL1"], probs=thresh)
+l1COL1 <- dt[dt$ECMp=="COL1",]
+COL1LsKRT1990 <- quantile(dt$Cytoplasm_CP_Intensity_MedianIntensity_KRT19[dt$Ligand=="LowSerum"& dt$ECMp=="COL1"], probs=thresh)
+#l1COL1 <- l1[l1$ECMp=="COL1",]
+
+dt$KRT5P <- FALSE
+dt$KRT5P[dt$Cytoplasm_CP_Intensity_MedianIntensity_KRT5 >= COL1LsKRT590] <- TRUE
+
+dt$KRT19P <- FALSE
+dt$KRT19P[dt$Cytoplasm_CP_Intensity_MedianIntensity_KRT19 >= COL1LsKRT1990] <- TRUE
+
+dt$KRTState <- 0
+dt$KRTState[dt$KRT5P] <- 1
+dt$KRTState[dt$KRT19P] <- dt$KRTState[dt$KRT19P]+2
+
+
+krtList <- lapply(unique(dt$MEP), function(MEP, dt){
+  KRTState <-dt$KRTState[dt$MEP==MEP]
+  t <- data.frame(MEP=MEP,Ligand=unique(dt$Ligand[dt$MEP==MEP]),
+                  KRTM=sum(KRTState==0)/length(KRTState),
+                  KRT5P=sum(KRTState==1)/length(KRTState),
+                  KRT19P=sum(KRTState==2)/length(KRTState),
+                  KRTPP=sum(KRTState==3)/length(KRTState))
+}, dt=dt)
+krtDT<-rbindlist(krtList)
+
+
+krtDTm <- melt(krtDT, id.vars=c("MEP","Ligand"),measure.vars = c("KRTM","KRT5P","KRT19P","KRTPP"), variable.name = "Gate",value.name = "Proportion")
+krtDTm$ECMp <- sub("_.*","",krtDTm$MEP)
+
+
+# p <- ggplot(l1COL1, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_KRT5))+
+#   geom_bar(binwidth=.001)+
+#   facet_wrap(~Ligand)
+# 
+# p <- ggplot(l1COL1, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_KRT19))+
+#   geom_bar(binwidth=.001)+
+#   facet_wrap(~Ligand)
+# 
+# 
+# p <- ggplot(l1COL1, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_KRT5, y=Cytoplasm_CP_Intensity_MedianIntensity_KRT19, colour=as.factor(Spot)))+geom_point(size=rel(.8), alpha=.5)+
+#   facet_wrap(~Ligand)
+```
+
+```{r KRTGAtedPlots}
+
+p <- ggplot(krtDTm, aes(x=factor(ECMp), y=Proportion, fill=Gate))+
+  geom_bar(stat="identity")+
+  facet_wrap(~Ligand, ncol=2)+
+  xlab("ECM Protein")+
+  ggtitle("HCC1143 Gated Proportions in KRT-, KRT5+, KRT19+ and KRT519+")+
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.6)),legend.title=element_text(size = rel(.8)))
+suppressWarnings(print(p))
+
 ```
 
 \newpage
@@ -235,10 +309,7 @@ print(p)
 ```{r ProliferationMEPS, echo = FALSE, eval=(ss=="SS2")}
 setkey(l4HF, Nuclei_PA_Gated_EduPositiveProportion_RZSNorm)
 
-kable(head(l4HF[,list(MEP,Barcode, Nuclei_PA_Gated_EduPositiveProportion_RZSNorm, Nuclei_PA_Gated_EduPositiveProportion_RZSNorm_SE, Spot_PA_ReplicateCount)], n=20), col.names = c("MEP", "Barcode","Proliferation Proportion", "Proliferation Proportion SE", "Replicate Count"), digits = 2)
-
-kable(tail(l4HF[,list(MEP,Barcode, Nuclei_PA_Gated_EduPositiveProportion_RZSNorm, Nuclei_PA_Gated_EduPositiveProportion_RZSNorm_SE,Spot_PA_ReplicateCount)], n=20), col.names = c("MEP", "Barcode","Proliferation Proportion", "Proliferation Proportion SE", "Replicate Count"), digits = 2)
-
+datatable(format(l4HF[,list(MEP,Barcode, Nuclei_PA_Gated_EduPositiveProportion_RZSNorm, Nuclei_PA_Gated_EduPositiveProportion_RZSNorm_SE, Spot_PA_ReplicateCount)], digits=1, scientific = FALSE, nsmall=0), colnames = c("MEP", "Barcode","Proliferation Proportion", "Proliferation Proportion SE", "Replicate Count"))
 ```
 
 
@@ -323,10 +394,7 @@ print(p)
 ```{r LineageRatioMEPS, echo = FALSE, eval=ss=="SS3"}
 setkey(l4HF, Cytoplasm_PA_Intensity_LineageRatio_RZSNorm)
 
-kable(head(l4HF[,list(MEP,Barcode, Cytoplasm_PA_Intensity_LineageRatio_RZSNorm,Cytoplasm_PA_Intensity_LineageRatio_RZSNorm_SE,Spot_PA_ReplicateCount)], n=20), col.names = c("MEP", "Barcode", "LineageRatio", "LineageRatio SE", "Replicate Count"), digits = 2)
-
-kable(tail(l4HF[,list(MEP,Barcode, Cytoplasm_PA_Intensity_LineageRatio_RZSNorm,Cytoplasm_PA_Intensity_LineageRatio_RZSNorm_SE,Spot_PA_ReplicateCount)], n=20), col.names = c("MEP", "Barcode","LineageRatio", "LineageRatio SE", "Replicate Count"), digits = 2)
-
+datatable(format(l4HF[,list(MEP,Barcode, Cytoplasm_PA_Intensity_LineageRatio_RZSNorm,Cytoplasm_PA_Intensity_LineageRatio_RZSNorm_SE,Spot_PA_ReplicateCount)], digits=1, scientific = FALSE, nsmall=0), colnames = c("MEP", "Barcode", "LineageRatio", "LineageRatio SE", "Replicate Count"))
 ```
 
 \newpage
@@ -470,7 +538,8 @@ if(ss=="SS1"){
   
 }
 
-kable(l4PCAModel$rotation[,1:nrPCs], digits = 2)
+#kable(l4PCAModel$rotation[,1:nrPCs], digits = 2)
+datatable(format(l4PCAModel$rotation[,1:nrPCs], digits=1, scientific = FALSE, nsmall=0))
 
 #Extract the selectedPCs of each MEP into a matrix
 l4pcv <- l4PCAModel$x[,1:nrPCs]
@@ -672,25 +741,24 @@ suppressWarnings(print(p))
 \newpage
 
 ###Extreme Spot Cell Count MEPs
-The table below lists the MEPs with ablsoute value Z scores greater than `r SCCZscoreThresh`.
+The table below lists the MEPs with their Spot Cell Count, Z scores and replicate count.
 
 ```{r SCCMeps,echo=FALSE, fig.width=8, fig.height=5, eval=TRUE}
 setkey(l4F,"Ligand")
 dt <- l4F[!"FBS"]
 setkey(dt, Spot_PA_SpotCellCount_RZSNorm_RobustZ)
-kable(dt[dt$Spot_PA_SpotCellCount_RZSNorm_RobustZ >=SCCZscoreThresh | dt$Spot_PA_SpotCellCount_RZSNorm_RobustZ <= -SCCZscoreThresh, list(Ligand,ECMp,Barcode,Spot_PA_SpotCellCount_RZSNorm_RobustZ, Spot_PA_SpotCellCount, Spot_PA_ReplicateCount)],digits = 3, col.names = c("Ligand","ECMp","Barcode","Spot Cell Count Z Score","Spot Cell Count","Replicate Count"))
+datatable(format(dt[, list(Ligand,ECMp,Barcode,Spot_PA_SpotCellCount_RZSNorm_RobustZ, Spot_PA_SpotCellCount, Spot_PA_ReplicateCount)], digits=1, scientific = FALSE, nsmall=0), options = list(pageLength = 5), colnames = c("Ligand","ECMp","Barcode","Spot Cell Count Z Score","Spot Cell Count","Replicate Count"))
 ```
 
 
 \newpage
 
 ###Active MEPS from Unbiased Analysis
-The table below shows the first and last active MEPs and their PC values.
+The table below shows the MEPs and their PC values.
 
 ```{r ActiveMeps, echo = FALSE}
-kable(head(activeMEPs, n=20), digits = 2)
-kable(tail(activeMEPs, n=20), digits = 2)
 
+datatable(format(activeMEPs, digits=1, scientific = FALSE, nsmall=0), options = list(pageLength = 5))
 ```
 
 \newpage

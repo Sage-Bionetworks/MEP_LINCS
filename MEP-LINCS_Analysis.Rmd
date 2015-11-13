@@ -23,6 +23,7 @@ library(knitr)
 library("gplots")
 library("RColorBrewer")
 library(DT)
+library(d3heatmap)
 
 
 #Setup colors for Barcode and text in all heatmaps
@@ -35,7 +36,8 @@ l3 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine,"_",ss,"_Leve
 l4 <- fread(paste0("./",cellLine,"/",ss,"/AnnotatedData/",cellLine,"_",ss,"_Level4.txt"), showProgress = FALSE)
 
 barcodes <- sort(unique(l3$Barcode))
-
+l1$Ligand[l1$Ligand=="NRG1_NRG1"] <- "NRG1"
+l3$Ligand[l3$Ligand=="NRG1_NRG1"] <- "NRG1"
 
 #Set a threshold for filtering wells on their QA score
 wellQAThresh <- 0.7
@@ -139,14 +141,6 @@ l4HF <- l4HF[l4HF$Spot_PA_ReplicateCount >= HFRepThresh]
 
 thresh <- .5
 ```
-###Gating on KRT Response
-
-The following plots show proportions of cell populations gated on their KRT5 and KRT19 median intensity values. The method used is:  
-
-Combine all cell populations of each ECM protein within each well forming MEP populations.  
-Define the KRT5 and KRT19 gate thresholds as the `r thresh*100`th percentile of these signals in the COL1, low serum populations.  
-Apply the KRT5 and KRT19 thresholds to all MEP populations and calculate the four proportions of cells defined as negative for both signals, positive for either KRT5 or KRT19 or positive for both signals.  
-Display the proportions of each MEP population, facted by ligand  
 
 ```{r gateKRT}
 dt <- copy(l1)
@@ -185,19 +179,37 @@ krtDT<-rbindlist(krtList)
 krtDTm <- melt(krtDT, id.vars=c("MEP","Ligand"),measure.vars = c("KRTM","KRT5P","KRT19P","KRTPP"), variable.name = "Gate",value.name = "Proportion")
 krtDTm$ECMp <- sub("_.*","",krtDTm$MEP)
 
-
-# p <- ggplot(l1COL1, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_KRT5))+
-#   geom_bar(binwidth=.001)+
-#   facet_wrap(~Ligand)
-# 
-# p <- ggplot(l1COL1, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_KRT19))+
-#   geom_bar(binwidth=.001)+
-#   facet_wrap(~Ligand)
-# 
-# 
-# p <- ggplot(l1COL1, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_KRT5, y=Cytoplasm_CP_Intensity_MedianIntensity_KRT19, colour=as.factor(Spot)))+geom_point(size=rel(.8), alpha=.5)+
-#   facet_wrap(~Ligand)
+krtDTmL <- krtDTm[,list(Proportion=mean(Proportion)), by="Gate,Ligand"]
 ```
+
+```{r}
+
+p <- ggplot(l1COL1, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_KRT5))+
+  geom_bar(binwidth=.001)+
+  facet_wrap(~Ligand)
+suppressWarnings(print(p))
+
+p <- ggplot(l1COL1, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_KRT19))+
+  geom_bar(binwidth=.001)+
+  facet_wrap(~Ligand)
+suppressWarnings(print(p))
+
+
+p <- ggplot(l1COL1, aes(x=Cytoplasm_CP_Intensity_MedianIntensity_KRT5, y=Cytoplasm_CP_Intensity_MedianIntensity_KRT19, colour=as.factor(Spot)))+geom_point(size=rel(.8), alpha=.5)+
+  facet_wrap(~Ligand)
+suppressWarnings(print(p))
+
+```
+
+
+###Gating on KRT Response
+
+The following plots show proportions of cell populations gated on their KRT5 and KRT19 median intensity values. The method used is:  
+
+Combine all cell populations of each ECM protein within each well forming MEP populations.  
+Define the KRT5 and KRT19 gate thresholds as the `r thresh*100`th percentile of these signals in the COL1, low serum populations.  
+Apply the KRT5 and KRT19 thresholds to all MEP populations and calculate the four proportions of cells defined as negative for both signals, positive for either KRT5 or KRT19 or positive for both signals.  
+Display the proportions of each MEP population, facted by ligand  
 
 ```{r KRTGAtedPlots}
 
@@ -205,6 +217,14 @@ p <- ggplot(krtDTm, aes(x=factor(ECMp), y=Proportion, fill=Gate))+
   geom_bar(stat="identity")+
   facet_wrap(~Ligand, ncol=2)+
   xlab("ECM Protein")+
+  ggtitle("HCC1143 Gated Proportions in KRT-, KRT5+, KRT19+ and KRT519+")+
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.6)),legend.title=element_text(size = rel(.8)))
+suppressWarnings(print(p))
+
+
+p <- ggplot(krtDTmL, aes(x=factor(Ligand), y=Proportion, fill=Gate))+
+  geom_bar(stat="identity")+
+  xlab("Ligand")+
   ggtitle("HCC1143 Gated Proportions in KRT-, KRT5+, KRT19+ and KRT519+")+
     theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=rel(.8)), axis.text.y = element_text(angle = 0, vjust = 0.5, hjust=1, size=rel(1)), plot.title = element_text(size = rel(1)),legend.text=element_text(size = rel(.6)),legend.title=element_text(size = rel(.8)))
 suppressWarnings(print(p))
@@ -425,10 +445,13 @@ if("2NProportion" %in% colnames(fvDT)) setnames(fvDT,"2NProportion","DNA2NPropor
 
 The next heatmap shows the same analysis run on the dataset after removing NID1 and using data normalized to each plate's control well.
 
-```{r, fig.height=16, eval = TRUE}
+```{r, fig.height=8, eval = TRUE}
 
-#Plot the heat map without NID1 in the dataset
-activeMEPs <- ubHeatmap(fvDT[!grepl("NID1",fvDT$MEP)], title = "Normalized MEP Feature Vectors", cols = plateCol)
+df <- data.frame(fvDT[!grepl("NID1",fvDT$MEP)])
+rownames(df) <- df$MEP
+df <- df[,!(names(df) %in% c("Barcode", "MEP"))]
+
+d3heatmap(df, scale="column", colors="RdBu", xaxis_font_size="6pt", yaxis_font_size="6pt")
 
 ```
 
@@ -443,7 +466,7 @@ Exclude inactive MEPs by selecting for distances above a selected percentile
 Perform hierarchical clustering of the first `r nrPCs` PCFVs of the active MEPs   
 
 
-```{r, fig.height=12}
+```{r, fig.height=8}
 l4F <- l4F[!grepl("NID1",l4F$ECMp)]
 
 PCFVNames <- grep("RZSNorm",colnames(l4F),value=TRUE)
@@ -455,8 +478,12 @@ l4PCAModel <- prcomp(as.formula(paste(" ~ ", paste(PCFVNames, collapse = "+"))),
 #Extract the first PCs of each MEP into a matrix
 l4pcvDT <- data.table(l4PCAModel$x[,1:nrPCs],Barcode =l4F$Barcode, MEP = l4F$MEP)
 
-#Plot the heat map of the entire dataset
-activeMEPs <- ubHeatmap(l4pcvDT, title = "MEP PCA Vectors", cols = plateCol)
+l4pcvDT <- data.frame(l4pcvDT)
+rownames(l4pcvDT) <- l4pcvDT$MEP
+l4pcvDT <- l4pcvDT[,!(colnames(l4pcvDT) %in% c("Barcode", "MEP"))]
+
+d3heatmap(l4pcvDT, scale="column", colors="RdBu", xaxis_font_size="6pt", yaxis_font_size="6pt")
+
 
 ```
 

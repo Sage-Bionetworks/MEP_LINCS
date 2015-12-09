@@ -26,14 +26,15 @@ uploadToSynapse <- function(x, parentId) {
   annots <- toAnnotationList(x)
   obj <- File(x$filename, parentId=parentId)
   synSetAnnotations(obj) <- annots
-  obj <- synStore(obj, forceVersion=FALSE, 
-                  activityName="Upload", executed=thisScript)
+  obj <- synStore(obj, 
+                  activityName="Upload", 
+                  contentType="text/tab-separated-values",
+                  executed=thisScript)
   obj
 }
 
-for(cellLine in c("PC3","MCF7", "YAPC")){
-  for (ss in c("SS1", "SS2", "SS3")){
-    #browser()
+for(cellLine in c("MCF7","PC3","YAPC")){
+  for (ss in c("SS1","SS2","SS3")){
     dataDir <- paste("/Users/dane/Documents/MEP-LINCS",cellLine,ss,"AnnotatedData", sep = "/")
     # Take file names and turn into basic annotation set
     # Replace this with a better way to get basic annotations from 

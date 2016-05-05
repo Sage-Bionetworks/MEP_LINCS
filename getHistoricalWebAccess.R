@@ -33,3 +33,6 @@ res <- ddply(dateRanges, .(number),
              function(x) {doQuery(projectId, 
                                   x$beginTimestamp, 
                                   x$endTimestamp)})
+
+foo <- res %>% filter(RESPONSE_STATUS == 200)  %>% count(userid, id, DATE, TIMESTAMP, NODE_TYPE) %>% ungroup() %>% 
+  mutate(id=as.character(id))

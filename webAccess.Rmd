@@ -45,10 +45,11 @@ mytheme <- theme_bw() + theme(axis.text=element_text(size=16),
                               axis.title.y=element_text(size=18, angle=90))
 
 # Full header of table
-header <- c("returnobjectid", "elapsems", "timestamp", "via", "host", "threadid", 
-            "useragent", "querystring", "sessionid", "xforwardedfor", "requesturl", 
-            "userid", "origin", "date", "method", "vmid", "instance", "stack",
-            "success", "responsestatus")
+header <- c("returnobjectid", "elapsems", "timestamp", "via", "host",
+            "threadid", "useragent", "querystring", "sessionid",
+            "xforwardedfor", "requesturl", "userid", "origin", "date", 
+            "method", "vmid", "instance", "stack", "success", 
+            "responsestatus")
 
 # Columns we're interested in
 keepcols <- c(1, 3, 7, 11, 12, 14, 18, 19)
@@ -70,15 +71,20 @@ endTimestamp <- as.numeric(endDate) * 1000
 
 beginDate <- endDate - months(1)
 beginTimestamp <- as.numeric(beginDate) * 1000
-# 
+
 q.browse <- sprintf('select NORMALIZED_METHOD_SIGNATURE,PROJECT_ID,BENEFACTOR_ID,PARENT_ID,ENTITY_ID,CONVERT(AR.TIMESTAMP, CHAR) AS TIMESTAMP,RESPONSE_STATUS,DATE,USER_ID,NODE_TYPE,N.NAME from ACCESS_RECORD AR, PROCESSED_ACCESS_RECORD PAR, NODE_SNAPSHOT N, (select distinct ID from NODE_SNAPSHOT where PROJECT_ID = "%s") NODE where AR.TIMESTAMP Between %s AND %s and AR.SESSION_ID = PAR.SESSION_ID and AR.TIMESTAMP = PAR.TIMESTAMP and PAR.ENTITY_ID = NODE.ID and N.ID = NODE.ID and CLIENT = "WEB" AND (PAR.NORMALIZED_METHOD_SIGNATURE = "GET /entity/#/bundle" OR PAR.NORMALIZED_METHOD_SIGNATURE = "GET /entity/#/version/#/bundle" OR PAR.NORMALIZED_METHOD_SIGNATURE = "GET /entity/#/wiki2" OR PAR.NORMALIZED_METHOD_SIGNATURE = "GET /entity/#/wiki2/#");', projectId, beginTimestamp, endTimestamp)
 
 data.browse <- dbGetQuery(conn = con, statement=q.browse) %>% 
   dplyr::rename(userid=USER_ID, id=ENTITY_ID)
 
-foo <- data.browse %>% filter(RESPONSE_STATUS == 200)  %>% count(userid, id, DATE, TIMESTAMP, NODE_TYPE, NAME) %>% ungroup()
+foo <- data.browse %>% filter(RESPONSE_STATUS == 200)  %>% count(userid, id, DATE, TIMESTAMP, NODE_TYPE) %>% ungroup() %>% 
+  mutate(id=as.character(id))
 
-data.browse <- foo
+allEntities <- synQuery(sprintf('select id,name from entity where projectId=="syn%s"', projectId)) %>% 
+  dplyr::rename(id=entity.id, name=entity.name) %>% 
+  mutate(id=str_replace(id, "syn", ""))
+
+data.browse <- left_join(foo, allEntities, by="id")
 ```
 ### Web access usage statistics from `r as.Date(beginDate)` to `r as.Date(endDate)`.
 
@@ -213,13 +219,13 @@ pUser <- pUser + labs(x="User")
 pUser
 ```
 
-#### Entity Usage (more than 5 accesses)
+#### Entity Usage (5 or more accesses)
 ```{r include=TRUE, eval=TRUE}
 ### Data
 dataaccessCount <- data.browse %>%
-  count(id, NAME, NODE_TYPE) %>% 
-  filter(n > 5, !str_detect(id, "acl")) %>%
+  count(id, name, NODE_TYPE) %>% 
+  filter(n >= 5, !str_detect(id, "acl")) %>%
   ungroup() %>% 
   arrange(desc(n))
-dataaccessCount %>% select(id, NAME, NODE_TYPE, n) %>% kable
+dataaccessCount %>% select(id, name, NODE_TYPE, n) %>% kable
 ```

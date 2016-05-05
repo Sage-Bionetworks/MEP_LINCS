@@ -70,7 +70,7 @@ con <- dbConnect(MySQL(),
 endDate <- as.POSIXct(Sys.Date(), origin="1970-01-01", tz="PST")
 endTimestamp <- as.numeric(endDate) * 1000
 
-beginDate <- endDate - months(3)
+beginDate <- endDate - months(1)
 beginTimestamp <- as.numeric(beginDate) * 1000
 
 # beginTimestamp <- 1446336000000
@@ -83,6 +83,15 @@ q.downloads <- sprintf('select CLIENT,NORMALIZED_METHOD_SIGNATURE,PROJECT_ID,BEN
 
 data.downloads <- dbGetQuery(conn = con, statement=q.downloads) %>% 
   dplyr::rename(userid=USER_ID, id=ENTITY_ID)
+
+foo <- data.downloads %>% filter(RESPONSE_STATUS == 200)  %>% count(userid, id, DATE, TIMESTAMP, NODE_TYPE) %>% ungroup() %>% 
+  mutate(id=as.character(id))
+
+allEntities <- synQuery(sprintf('select id,name from entity where projectId=="syn%s"', projectId)) %>% 
+  dplyr::rename(id=entity.id, name=entity.name) %>% 
+  mutate(id=str_replace(id, "syn", ""))
+
+data.downloads <- left_join(foo, allEntities, by="id")
 
 ```
 
@@ -223,10 +232,10 @@ pUser
 ```{r include=TRUE, eval=TRUE}
 ### Data
 dataaccessCount <- data.downloads %>%
-  count(id, NAME, NODE_TYPE) %>% 
+  count(id, name, NODE_TYPE) %>% 
   filter(n > 5, !str_detect(id, "acl")) %>%
   ungroup() %>% 
   arrange(desc(n))
-dataaccessCount %>% select(id, NAME, NODE_TYPE, n) %>% kable
+dataaccessCount %>% select(id, name, NODE_TYPE, n) %>% kable
 
 ```

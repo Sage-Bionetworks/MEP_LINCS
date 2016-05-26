@@ -529,7 +529,7 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
     #Write out cDT as level 1 dataset
     if(verbose) cat("Writing level 1 file to disk\n")
     writeTime<-Sys.time()
-    fwrite(cDT, paste0( "./AnnotatedData/", unique(cDT$CellLine),"_",ss,"_",rawDataVersion,"_",analysisVersion,"_","Level1.txt"), sep = "\t", quote=FALSE)
+    fwrite(cDT, paste0( "./AnnotatedData/", unique(cDT$CellLine),"_",ss,"_",drug,"_",rawDataVersion,"_",analysisVersion,"_","Level1.txt"), sep = "\t", quote=FALSE)
     cat("Write time:", Sys.time()-writeTime,"\n")
     
     #### SpotLevel ####
@@ -538,7 +538,7 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
     slDT <- createl3(cDT, lthresh, seNames = seNames)
     rm(cDT)
     gc()
-    fwrite(slDT, paste0( "./AnnotatedData/", unique(slDT$CellLine),"_",ss,"_",rawDataVersion,"_",analysisVersion,"_","SpotLevel.txt"), sep = "\t", quote=FALSE)
+    fwrite(slDT, paste0( "./AnnotatedData/", unique(slDT$CellLine),"_",ss,"_",drug,"_",rawDataVersion,"_",analysisVersion,"_","SpotLevel.txt"), sep = "\t", quote=FALSE)
   }
   cat("Elapsed time:", Sys.time()-startTime)
 }

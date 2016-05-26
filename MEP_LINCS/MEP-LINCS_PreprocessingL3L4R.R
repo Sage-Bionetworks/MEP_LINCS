@@ -67,7 +67,7 @@ preprocessMEPLINCSL3L4 <- function(ssDataset, verbose=FALSE){
   #Set a threshold for the lowSpotReplicates flag
   lowReplicateCount <- 3
   
-  slDT <- fread(paste0( "./AnnotatedData/", cellLine,"_",ss,"_",rawDataVersion,"_",analysisVersion,"_","SpotLevel.txt"))
+  slDT <- fread(paste0( "./AnnotatedData/", cellLine,"_",ss,"_",drug,"_",rawDataVersion,"_",analysisVersion,"_","SpotLevel.txt"))
   
   slDT <- slDT[!grepl("fiducial|Fiducial|gelatin|blank|air|PBS",slDT$ECMp),]
   
@@ -134,10 +134,10 @@ preprocessMEPLINCSL3L4 <- function(ssDataset, verbose=FALSE){
   #WriteData
   if(writeFiles){
     if(verbose) cat("Writing level 3 file to disk\n")
-    fwrite(data.table(format(slDT, digits = 4, trim=TRUE)), paste0( "./AnnotatedData/", unique(slDT$CellLine),"_",ss,"_",rawDataVersion, "_",analysisVersion,"_","Level3.txt"), sep = "\t", quote=FALSE)
+    fwrite(data.table(format(slDT, digits = 4, trim=TRUE)), paste0( "./AnnotatedData/", unique(slDT$CellLine),"_",ss,"_",drug,"_",rawDataVersion, "_",analysisVersion,"_","Level3.txt"), sep = "\t", quote=FALSE)
     
     if(verbose) cat("Writing level 4 file to disk\n")
-    fwrite(data.table(format(mepDT, digits = 4, trim=TRUE)), paste0( "./AnnotatedData/", unique(slDT$CellLine),"_",ss,"_",rawDataVersion,"_",analysisVersion,"_","Level4.txt"), sep = "\t", quote=FALSE)
+    fwrite(data.table(format(mepDT, digits = 4, trim=TRUE)), paste0( "./AnnotatedData/", unique(slDT$CellLine),"_",ss,"_",drug,"_",rawDataVersion,"_",analysisVersion,"_","Level4.txt"), sep = "\t", quote=FALSE)
     #Write the pipeline parameters to  tab-delimited file
     write.table(c(
       ss=ss,
@@ -162,7 +162,7 @@ preprocessMEPLINCSL3L4 <- function(ssDataset, verbose=FALSE){
       lowReplicateCount =lowReplicateCount,
       lthresh = lthresh
     ),
-    paste0("./AnnotatedData/", cellLine,"_",ss,"_",analysisVersion,"_","PipelineParameters.txt"), sep = "\t",col.names = FALSE, quote=FALSE)
+    paste0("./AnnotatedData/", cellLine,"_",ss,"_",drug,"_",analysisVersion,"_","PipelineParameters.txt"), sep = "\t",col.names = FALSE, quote=FALSE)
     
   }
   cat("Elapsed time:", Sys.time()-startTime)

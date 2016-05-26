@@ -164,7 +164,6 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
   ss<-ssDataset[["ss"]]
   drug<-ssDataset[["drug"]]
   cellLine<-ssDataset[["cellLine"]]
-  k<-as.integer(ssDataset[["k"]])
   analysisVersion<-ssDataset[["analysisVersion"]]
   rawDataVersion<-ssDataset[["rawDataVersion"]]
   limitBarcodes<-ssDataset[["limitBarcodes"]]
@@ -172,15 +171,12 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
   calcAdjacency<-as.logical(ssDataset[["calcAdjacency"]])
   writeFiles<-as.logical(ssDataset[["writeFiles"]])
   useJSONMetadata<-as.logical(ssDataset[["useJSONMetadata"]])
-  
   seNames=c("DNA2N","SpotCellCount","EdU","MitoTracker","KRT","Lineage","Fibrillarin")
   
   library(limma)#read GAL file and strsplit2
   library(MEMA)#merge, annotate and normalize functions
   library(data.table)#fast file reads, data merges and subsetting
   library(parallel)#use multiple cores for faster processing
-  library(RUVnormalize)
-  library(ruv)
   library("jsonlite")#Reading in json files
   library(stringr)
   
@@ -527,16 +523,13 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
   rm(expDTList)
   gc()
   
-  
- 
   # The cell level raw data and metadata is saved as Level 1 data. 
   
   if(writeFiles){
-    #Write out cDT without normalized values as level 1 dataset
-    level1Names <- grep("Norm|RUV3|Loess$",colnames(cDT),value=TRUE,invert=TRUE)
+    #Write out cDT as level 1 dataset
     if(verbose) cat("Writing level 1 file to disk\n")
     writeTime<-Sys.time()
-    fwrite(cDT[,level1Names, with=FALSE], paste0( "./AnnotatedData/", unique(cDT$CellLine),"_",ss,"_",rawDataVersion,"_",analysisVersion,"_","Level1.txt"), sep = "\t", quote=FALSE)
+    fwrite(cDT, paste0( "./AnnotatedData/", unique(cDT$CellLine),"_",ss,"_",rawDataVersion,"_",analysisVersion,"_","Level1.txt"), sep = "\t", quote=FALSE)
     cat("Write time:", Sys.time()-writeTime,"\n")
     
     #### SpotLevel ####
@@ -546,32 +539,6 @@ preprocessMEPLINCSL1Spot <- function(ssDataset, verbose=FALSE){
     rm(cDT)
     gc()
     fwrite(slDT, paste0( "./AnnotatedData/", unique(slDT$CellLine),"_",ss,"_",rawDataVersion,"_",analysisVersion,"_","SpotLevel.txt"), sep = "\t", quote=FALSE)
-    
-    #Write the pipeline parameters to  tab-delimited file
-    write.table(c(
-      ss=ss,
-      cellLine = cellLine,
-      analysisVersion = analysisVersion,
-      rawDataVersion = rawDataVersion,
-      neighborhoodNucleiRadii = neighborhoodNucleiRadii,
-      neighborsThresh = neighborsThresh,
-      wedgeAngs = wedgeAngs,
-      outerThresh = outerThresh,
-      nuclearAreaThresh = nuclearAreaThresh,
-      nuclearAreaHiThresh = nuclearAreaHiThresh,
-      curatedOnly = curatedOnly,
-      curatedCols = curatedCols,
-      writeFiles = writeFiles,
-      limitBarcodes = limitBarcodes,
-      k = k,
-      normToSpot = normToSpot,
-      lowSpotCellCountThreshold = lowSpotCellCountThreshold,
-      lowRegionCellCountThreshold = lowRegionCellCountThreshold,
-      lowWellQAThreshold = lowWellQAThreshold,
-      lowReplicateCount =lowReplicateCount,
-      lthresh = lthresh
-    ),
-    paste0("./AnnotatedData/", cellLine,"_",ss,"_",analysisVersion,"_","PipelineParameters.txt"), sep = "\t",col.names = FALSE, quote=FALSE)
   }
   cat("Elapsed time:", Sys.time()-startTime)
 }
@@ -633,8 +600,8 @@ watsonMEMAs <- data.frame(cellLine=c("HCC1954","HCC1954","AU565","AU565"),
                           drug=c("DMSO","Lapatinib"),
                           analysisVersion="av1.6",
                           rawDataVersion="v2",
-                          limitBarcodes=c(8,2,2,2),
-                          k=c(7,1,1,1),
+                          limitBarcodes=c(8,2,2,8),
+                          k=c(7,1,7,7),
                           calcAdjacency=TRUE,
                           writeFiles = TRUE,
                           mergeOmeroIDs = TRUE,

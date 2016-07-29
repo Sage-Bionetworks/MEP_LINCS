@@ -155,8 +155,16 @@ preprocessMEPLINCSL3L4 <- function(ssDataset, verbose=FALSE){
   #WriteData
   if(writeFiles){
     if(verbose) cat("Writing level 3 file to disk\n")
+    slDT <- data.table(format(slDT, digits = 4, trim=TRUE))
+    fwrite(slDT, paste0( "MEP_LINCS/AnnotatedData/", unique(slDT$CellLine),"_",ss,"_",drug,"_",rawDataVersion, "_",analysisVersion,"_","Level3.txt"), sep = "\t", quote=FALSE)
     
-    fwrite(data.table(format(slDT, digits = 4, trim=TRUE)), paste0( "MEP_LINCS/AnnotatedData/", unique(slDT$CellLine),"_",ss,"_",drug,"_",rawDataVersion, "_",analysisVersion,"_","Level3.txt"), sep = "\t", quote=FALSE)
+    for(barcode in unique(slDT$Barcode)){
+      setkey(slDT, Barcode)
+      dt <- slDT[barcode]
+      dt <- dt[,grep("RUV3$|SE|Log2Loess|LogitLoess|Cells_|Cytoplasm_CP_Intensity_IntegratedIntensity_Dapi",colnames(dt), value=TRUE, invert=TRUE), with=FALSE]
+      dt <- dt[,grep("Barcode|Well$|^Spot$|ArrayRow|ArrayColumn|ECMp|^Ligand|AreaShape_AreaLog2|AreaShape_PerimeterLog2|Cyto.*MedianIntensity_KRT.*Log2|Nuclei.*MedianIntensity_EdULog2|Nuclei.*MedianIntensity_DapiLog2|SpotCellCountLog2|Gated" ,colnames(dt),value=TRUE), with=FALSE]
+      fwrite(dt, paste0( "/lincs/share/lincs_user/",barcode,"/Analysis/",barcode,"_","level3.txt"), sep = "\t", quote=FALSE)
+    }
     
     if(verbose) cat("Writing level 4 file to disk\n")
     fwrite(data.table(format(mepDT, digits = 4, trim=TRUE)), paste0( "MEP_LINCS/AnnotatedData/", unique(slDT$CellLine),"_",ss,"_",drug,"_",rawDataVersion,"_",analysisVersion,"_","Level4.txt"), sep = "\t", quote=FALSE)
@@ -282,4 +290,4 @@ ssDatasets <- rbind(PC3df,MCF7df,YAPCdf,MCF10Adf,watsonMEMAs,qualPlates, ctrlPla
 library(XLConnect)
 library(data.table)
 
-tmp <- apply(ssDatasets[c(16:17),], 1, preprocessMEPLINCSL3L4, verbose=FALSE)
+tmp <- apply(ssDatasets[c(21),], 1, preprocessMEPLINCSL3L4, verbose=FALSE)
